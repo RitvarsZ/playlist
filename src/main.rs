@@ -107,6 +107,21 @@ impl eframe::App for App {
             self.export_table.export();
         }
 
+        let arrow_down = ctx.input(|i| i.clone().consume_key(egui::Modifiers::NONE, egui::Key::ArrowDown));
+        let arrow_up = ctx.input(|i| i.clone().consume_key(egui::Modifiers::NONE, egui::Key::ArrowUp));
+        if arrow_down {
+            if let Some(t) = self.selected_track.borrow().as_ref() {
+                self.import_table.maybe_move_track_down(t);
+                self.export_table.maybe_move_track_down(t);
+            }
+        } else if arrow_up {
+            if let Some(t) = self.selected_track.borrow().as_ref() {
+                self.import_table.maybe_move_track_up(t);
+                self.export_table.maybe_move_track_up(t);
+            } 
+        }
+        
+
         let space = ctx.input(|i| i.clone().consume_key(egui::Modifiers::NONE, egui::Key::Space));
         if space {
             if let Some(t) = self.selected_track.borrow().as_ref() {

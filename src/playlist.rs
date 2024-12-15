@@ -34,6 +34,24 @@ impl Playlist {
         }
     }
 
+    pub fn maybe_move_track_down(&mut self, track: &TrackMetadata) {
+        let index = self.tracks.iter().position(|t| t.id == track.id);
+        if let Some(index) = index {
+            if index < self.tracks.len() - 1 {
+                self.tracks.swap(index, index + 1);
+            }        
+        }
+    }
+
+    pub fn maybe_move_track_up(&mut self, track: &TrackMetadata) {
+        let index = self.tracks.iter().position(|t| t.id == track.id);
+        if let Some(index) = index {
+            if index > 0 {
+                self.tracks.swap(index, index - 1);
+            }        
+        }
+    }
+
     pub fn add_track(&mut self, track: TrackMetadata) {
         self.tracks.push(track);
     }
@@ -304,3 +322,4 @@ impl Playlist {
         }
     }
 }
+
