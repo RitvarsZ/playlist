@@ -37,7 +37,7 @@ fn main() -> eframe::Result {
 struct App {
     import_table: playlist::Playlist,
     export_table: playlist::Playlist,
-    selected_track: Rc<RefCell<Option<u32>>>,
+    selected_track: Rc<RefCell<Option<track_metadata::TrackMetadata>>>,
 }
 
 impl Default for App {
@@ -109,12 +109,10 @@ impl eframe::App for App {
 
         let space = ctx.input(|i| i.clone().consume_key(egui::Modifiers::NONE, egui::Key::Space));
         if space {
-            println!("selected_track: {}", self.selected_track.borrow().unwrap_or(0));
-            // Find which playlist has the track
-            if let Some(track_id) = *self.selected_track.borrow() {
-                if let Some(track) = self.import_table.maybe_remove_track(track_id) {
+            if let Some(t) = self.selected_track.borrow().as_ref() {
+                if let Some(track) = self.import_table.maybe_remove_track(t.id) {
                     self.export_table.add_track(track);
-                } else if let Some(track) = self.export_table.maybe_remove_track(track_id) {
+                } else if let Some(track) = self.export_table.maybe_remove_track(t.id) {
                     self.import_table.add_track(track);
                 }
             }

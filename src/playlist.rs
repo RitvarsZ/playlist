@@ -10,15 +10,15 @@ use crate::track_metadata::TrackMetadata;
 pub struct Playlist {
     pub tracks: Vec<TrackMetadata>,
     ui_id: eframe::egui::Id,
-    selected_track_id: Rc<RefCell<Option<u32>>>,
+    selected_track: Rc<RefCell<Option<TrackMetadata>>>,
 }
 
 impl Playlist {
-    pub fn new(selected_track_id: Rc<RefCell<Option<u32>>>) -> Self {
+    pub fn new(selected_track: Rc<RefCell<Option<TrackMetadata>>>) -> Self {
         Self {
             tracks: vec![],
             ui_id: eframe::egui::Id::new(rand::random::<u64>()),
-            selected_track_id,
+            selected_track,
         }
     }
 
@@ -200,7 +200,7 @@ impl Playlist {
                         .at_least(30.),
                 )
                 .column(Column::initial(50.).resizable(false).clip(false)) // BPM
-                .column(Column::initial(30.).resizable(false).clip(false)) // Key
+                .column(Column::initial(40.).at_least(40.).resizable(false).clip(false)) // Key
                 .column(Column::initial(40.).resizable(false).clip(false)) // Time
                 .column(
                     // My Tag
@@ -222,7 +222,7 @@ impl Playlist {
             table = table.sense(eframe::egui::Sense::click());
 
             table
-                .header(20.0, |mut header| {
+                .header(30.0, |mut header| {
                     [
                         "#", "Title", "Artist", "BPM", "Key", "Time", "My Tag", "Message", "Path",
                     ]
@@ -238,8 +238,8 @@ impl Playlist {
                         let row_index = row.index();
                         let track = &self.tracks[row_index];
                         {
-                            self.selected_track_id.borrow().inspect(|id| {
-                                row.set_selected(*id == track.id);
+                            self.selected_track.borrow().as_ref().inspect(|t| {
+                                row.set_selected(t.id == track.id);
                             });
                         }
                         let columns = [
@@ -256,29 +256,50 @@ impl Playlist {
 
                         for col_data in columns.iter() {
                             row.col(|ui| {
-                                // ui.label(col_data);
-                                // disable interactions
-                                // ui.label(col_data);
-                                ui.add(eframe::egui::widgets::Label::new(col_data));
+                                if col_data == &track.key {
+                                    self.show_key_col(ui, track);
+                                }
+                                else {
+                                    ui.label(col_data);
+                                }
                             });
                         }
-                        self.toggle_row_selection(track.id, &row.response());
+                        self.toggle_row_selection(track.clone(), &row.response());
                     })
                 });
         });
     }
 
-    fn toggle_row_selection(&mut self, track_id: u32, row_response: &eframe::egui::Response) {
+    fn show_key_col(&self, ui: &mut eframe::egui::Ui, track: &TrackMetadata) {
+        let label = eframe::egui::widgets::Label::new(&track.key);
+        if let Some(selected_track) = self.selected_track.borrow().as_ref() {
+            let key_compare = crate::track_metadata::compare_keys(&selected_track.key, &track.key);
+            if let Ok(key_compare) = key_compare {
+                if let Some(color) = crate::track_metadata::color_from_key_compare(key_compare) {
+                    eframe::egui::Frame::default().fill(color).show(ui, |ui| {
+                        ui.set_width(30.);
+                        ui.colored_label(eframe::egui::Color32::from_rgb(255, 255, 255), label.text());
+                    });
+                } else {
+                    ui.add(label);
+                }
+            }
+        } else {
+            ui.add(label);
+        }
+    }
+
+    fn toggle_row_selection(&mut self, track: TrackMetadata, row_response: &eframe::egui::Response) {
         if row_response.clicked() {
-            let mut selected = self.selected_track_id.borrow_mut();
-            if let Some(selected_track_id) = selected.as_ref() {
-                if *selected_track_id == track_id {
+            let mut selected = self.selected_track.borrow_mut();
+            if let Some(selected_track) = selected.as_ref() {
+                if selected_track.id == track.id {
                     selected.take();
                 } else {
-                    selected.replace(track_id);
+                    selected.replace(track);
                 }
             } else {
-                selected.replace(track_id);
+                selected.replace(track);
             }
         }
     }
