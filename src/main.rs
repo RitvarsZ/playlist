@@ -4,6 +4,7 @@ use eframe::egui;
 
 mod playlist;
 mod track_metadata;
+mod track_player;
 
 fn main() -> eframe::Result {
     let options = eframe::NativeOptions {
@@ -38,6 +39,7 @@ struct App {
     import_table: playlist::Playlist,
     export_table: playlist::Playlist,
     selected_track: Rc<RefCell<Option<track_metadata::TrackMetadata>>>,
+    player: track_player::Player,
 }
 
 impl Default for App {
@@ -48,6 +50,7 @@ impl Default for App {
             import_table: playlist::Playlist::new(selected_track.clone()),
             export_table: playlist::Playlist::new(selected_track.clone()),
             selected_track,
+            player: track_player::Player::default(),
         }
     }
 }
@@ -56,10 +59,13 @@ impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let mut import_clicked = false;
         let mut export_clicked = false;
+        let mut play_clicked = false;
+
         egui::TopBottomPanel::top("top panel").min_height(30.0).show(ctx, |ui| {
             ui.horizontal_centered(|ui| {
                 import_clicked = ui.button("Import Table").clicked();
                 export_clicked = ui.button("Export Table").clicked();
+                play_clicked = ui.button("test").clicked();
             });
         });
         egui::CentralPanel::default().show(ctx, |ui| {
@@ -132,6 +138,12 @@ impl eframe::App for App {
                 }
             }
         
+        }
+
+        if play_clicked {
+            if let Some(t) = self.selected_track.borrow().as_ref() {
+                self.player.play(t.clone())
+            }
         }
     }
 }

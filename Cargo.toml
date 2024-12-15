@@ -10,4 +10,5 @@ egui_extras = "0.29.1"
 m3u8-rs = "6.0.0"
 rand = "0.8.5"
 rfd = "0.15.1"
+rodio = { version = "0.20.1", features = ["symphonia-all"] }
 serde = { version = "1.0.215", features = ["derive"] }
