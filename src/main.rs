@@ -1,3 +1,4 @@
+#![windows_subsystem = "windows"]
 use std::{cell::RefCell, rc::Rc};
 use std::thread;
 use eframe::egui;
