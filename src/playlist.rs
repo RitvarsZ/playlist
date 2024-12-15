@@ -87,11 +87,6 @@ impl Playlist {
             }
         }
 
-        // map over tracks
-        for (i, track) in self.tracks.iter().enumerate() {
-            println!("{}: {}", i, track.title);
-        }
-
         let file = rfd::FileDialog::new()
             .add_filter("m3u8", &["m3u8"])
             .set_directory("/")
@@ -102,10 +97,6 @@ impl Playlist {
             let bytes = std::fs::read(file).unwrap();
             match m3u8_rs::parse_playlist(&bytes) {
                 Result::Ok((_, m3u8_rs::Playlist::MediaPlaylist(pl))) => {
-                    //print playlist
-                    println!("{:?}", pl);
-                    // map each segment to each track metadata entry.
-                    // if lengths differ, throw an error.
                     if pl.segments.len() != self.tracks.len() {
                         println!("{} != {}", pl.segments.len(), self.tracks.len());
                         panic!("Length of segments and tracks differ.");

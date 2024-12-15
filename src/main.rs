@@ -1,5 +1,5 @@
 use std::{cell::RefCell, rc::Rc};
-
+use std::thread;
 use eframe::egui;
 
 mod playlist;
@@ -23,18 +23,6 @@ fn main() -> eframe::Result {
     )
 }
 
-/** 
-*
-* Plalists app is an app for reordering recordbox playlists.
-* 1. Import a csv file with song information (title, artists, key, bpm)
-* 2. Imported songs show up in a table.
-* 3. Imported songs can be dragged to another table, called the export table.
-* 4. Songs in both tables can be previewed.
-* 5. When selecting a song on the export table - songs that match bpm and key
-*    show up on the import table (indicating that they are a good match to mix).
-* 6. Export table can be exported back to csv.
-*
-* */
 struct App {
     import_table: playlist::Playlist,
     export_table: playlist::Playlist,
@@ -55,18 +43,68 @@ impl Default for App {
     }
 }
 
+impl App {
+    fn update_player(&mut self) {
+        let selected_track = self.selected_track.borrow().clone();
+        let player_track = self.player.track.clone();
+
+        if selected_track.is_none() && player_track.is_some() {
+            self.player.load(None);
+        } else if selected_track.as_ref().is_some_and(|t| t.id != player_track.map_or(0, |t| t.id)) {
+            self.player.load(selected_track);
+        }
+    }
+}
+
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        egui_extras::install_image_loaders(ctx);
+
+        self.update_player();
         let mut import_clicked = false;
         let mut export_clicked = false;
         let mut play_clicked = false;
+        let mut stop_clicked = false;
 
         egui::TopBottomPanel::top("top panel").min_height(30.0).show(ctx, |ui| {
-            ui.horizontal_centered(|ui| {
-                import_clicked = ui.button("Import Table").clicked();
-                export_clicked = ui.button("Export Table").clicked();
-                play_clicked = ui.button("test").clicked();
-            });
+            use egui_extras::{Size, StripBuilder};
+            StripBuilder::new(ui)
+                .size(Size::initial(20.))
+                .size(Size::initial(60.))
+                .vertical(|mut strip| {
+                    strip.cell(|ui| {
+                        ui.horizontal_centered(|ui| {
+                            import_clicked = ui.button("Import Table").clicked();
+                            export_clicked = ui.button("Export Table").clicked();
+                            play_clicked = ui.button("Play").clicked();
+                            stop_clicked = ui.button("Stop").clicked();
+
+                            ui.add(egui::Slider::from_get_set(
+                                0.0..=1.0,
+                                |volume| {
+                                    if let Some(volume) = volume {
+                                        self.player.set_volume(volume as f32)
+                                    }
+
+                                    self.player.volume as f64
+                                }
+                            ));
+                        });
+                    });
+
+                    strip.cell(|ui| {
+                        egui::Frame::none()
+                            .fill(egui::Color32::from_rgb(0,0,0))
+                            .inner_margin(egui::Margin::same(10.))
+                            .show(ui, |ui| {
+                                ui.set_height(60.);
+                                ui.set_width(ui.available_width());
+                                self.player.update(ui);
+                                self.player.ui(ui);
+                            });
+                    });
+                });
+
         });
         egui::CentralPanel::default().show(ctx, |ui| {
             use egui_extras::{Size, StripBuilder};
@@ -107,6 +145,36 @@ impl eframe::App for App {
 
         if import_clicked {
             self.import_table.import();
+            // spawn threads to generate previews.
+            let tracks = std::sync::Arc::new(self.import_table.tracks.clone());
+
+            let handles: Vec<_> = tracks.iter().map(|track| {
+                let track = track.clone();
+                println!("generating preview for: {}", track.title);
+                thread::spawn(move || {
+                    let datadir = std::env::temp_dir().join("playlists");
+                    std::fs::create_dir_all(&datadir).unwrap();
+                    let filename = track.id.to_string() + track.title.as_str() + track.artist.as_str() + ".png";
+
+                    if datadir.join(filename.as_str()).exists() {
+                        return;
+                    }
+
+                    let path = std::path::Path::new(&track.media_segment.uri);
+                    let decoder = rodio::Decoder::new(std::fs::File::open(path).unwrap());
+
+                    audio_visualizer::waveform::png_file::waveform_static_png_visualize(
+                        &decoder.unwrap().collect::<Vec<i16>>(),
+                        audio_visualizer::Channels::Mono,
+                        datadir.to_str().unwrap(),
+                        filename.as_str(),
+                    );
+                })
+            }).collect();
+
+            for handle in handles {
+                if let Err(e) = handle.join() { eprintln!("Thread encountered an error: {:?}", e) }
+            }
         }
 
         if export_clicked {
@@ -140,10 +208,12 @@ impl eframe::App for App {
         
         }
 
+        if stop_clicked {
+            self.player.stop()
+        }
+
         if play_clicked {
-            if let Some(t) = self.selected_track.borrow().as_ref() {
-                self.player.play(t.clone())
-            }
+            self.player.play()
         }
     }
 }
